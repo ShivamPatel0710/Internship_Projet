@@ -25,6 +25,8 @@ mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('✅ MongoDB connected'))
   .catch((err) => console.error(err));
 
+const Message = require('./models/message.js');
+
 
 //Routes  
 const authRoutes = require('./routes/authRoutes');
@@ -38,10 +40,28 @@ app.use('/api/user', protectedRoutes);
 io.on('connection', (socket) => {
   console.log(`📡 New user connected: ${socket.id}`);
 
-  socket.on('sendMessage', (data) => {
-    console.log('📨 Message received:', data);
-    io.emit('receiveMessage', data); // broadcast to everyone
-  });
+  socket.on('sendMessage', async (data) => {
+  console.log('📨 Message received:', data); // ✅ This should show an object, not just a string
+
+  try {
+    // Validate data type
+    if (typeof data !== 'object' || !data.text) {
+      console.error('❌ Invalid message format received:', data);
+      return;
+    }
+
+    const message = new Message({
+      username: data.username || 'Anonymous',
+      text: data.text
+    });
+
+    await message.save(); // Save to MongoDB
+    io.emit('receiveMessage', message); // Broadcast to all clients
+  } catch (err) {
+    console.error('❌ Error saving message:', err.message);
+  }
+});
+
 
   socket.on('disconnect', () => {
     console.log(`❌ User disconnected: ${socket.id}`);

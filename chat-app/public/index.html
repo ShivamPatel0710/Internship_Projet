@@ -1,48 +1,71 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>App Test</title>
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    <style>
+  <meta charset="UTF-8" />
+  <title>Login & Register</title>
+  <style>
     body { font-family: sans-serif; padding: 20px; }
-    #messages { border: 1px solid #ccc; padding: 10px; height: 200px; overflow-y: auto; margin-bottom: 10px; }
-    input, button { padding: 8px; font-size: 1rem; }
+    form { margin-bottom: 20px; }
+    input, button { padding: 8px; margin: 5px; }
   </style>
-
 </head>
 <body>
-    <h2>🧪 Real-Time Chat Test</h2>
+  <h2>Register</h2>
+  <form id="registerForm">
+    <input type="text" id="regUsername" placeholder="Username" required />
+    <input type="password" id="regPassword" placeholder="Password" required />
+    <button type="submit">Register</button>
+  </form>
 
-  <div id="messages"></div>
-
-  <input id="msgInput" type="text" placeholder="Type a message..." />
-  <button onclick="sendMessage()">Send</button>
+  <h2>Login</h2>
+  <form id="loginForm">
+    <input type="text" id="loginUsername" placeholder="Username" required />
+    <input type="password" id="loginPassword" placeholder="Password" required />
+    <button type="submit">Login</button>
+  </form>
 
   <script>
-    const socket = io("http://localhost:5050"); // adjust port if needed
+    const BASE_URL = "http://localhost:5050/api/auth";
 
-    const messagesDiv = document.getElementById("messages");
-    const input = document.getElementById("msgInput");
+    // Register
+    document.getElementById("registerForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const username = document.getElementById("regUsername").value;
+      const password = document.getElementById("regPassword").value;
 
-    socket.on("connect", () => {
-      console.log("✅ Connected:", socket.id);
+      const res = await fetch(`${BASE_URL}/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+
+      const data = await res.json();
+      alert(data.message || "Registered!");
     });
 
-    socket.on("receiveMessage", (data) => {
-      const msg = document.createElement("div");
-      msg.textContent = `📩 ${data}`;
-      messagesDiv.appendChild(msg);
-    });
+    // Login
+    document.getElementById("loginForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const username = document.getElementById("loginUsername").value;
+      const password = document.getElementById("loginPassword").value;
 
-    function sendMessage() {
-      const message = input.value;
-      if (message.trim() !== "") {
-        socket.emit("sendMessage", message);
-        input.value = "";
+      const res = await fetch(`${BASE_URL}/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+
+      const data = await res.json();
+
+      if (data.token) {
+        alert("Login successful!");
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("username", data.username);
+        window.location.href = "chat.html"; // Step 2 page
+      } else {
+        alert(data.message || "Login failed");
       }
-    }
+    });
   </script>
 </body>
 </html>
