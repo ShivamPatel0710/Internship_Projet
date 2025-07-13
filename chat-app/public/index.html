@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>App Test</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+    body { font-family: sans-serif; padding: 20px; }
+    #messages { border: 1px solid #ccc; padding: 10px; height: 200px; overflow-y: auto; margin-bottom: 10px; }
+    input, button { padding: 8px; font-size: 1rem; }
+  </style>
+
+</head>
+<body>
+    <h2>🧪 Real-Time Chat Test</h2>
+
+  <div id="messages"></div>
+
+  <input id="msgInput" type="text" placeholder="Type a message..." />
+  <button onclick="sendMessage()">Send</button>
+
+  <script>
+    const socket = io("http://localhost:5050"); // adjust port if needed
+
+    const messagesDiv = document.getElementById("messages");
+    const input = document.getElementById("msgInput");
+
+    socket.on("connect", () => {
+      console.log("✅ Connected:", socket.id);
+    });
+
+    socket.on("receiveMessage", (data) => {
+      const msg = document.createElement("div");
+      msg.textContent = `📩 ${data}`;
+      messagesDiv.appendChild(msg);
+    });
+
+    function sendMessage() {
+      const message = input.value;
+      if (message.trim() !== "") {
+        socket.emit("sendMessage", message);
+        input.value = "";
+      }
+    }
+  </script>
+</body>
+</html>
