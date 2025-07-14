@@ -26,6 +26,18 @@ app.use(express.static(path.join(__dirname, '../public')));
 app.use('/api/auth', authRoutes);
 app.use('/api/user', protectedRoutes);
 
+// ✅ Get chat history (latest 100 messages)
+app.get('/api/messages', async (req, res) => {
+  try {
+    const messages = await Message.find().sort({ timestamp: 1 }).limit(100);
+    res.json(messages);
+  } catch (err) {
+    console.error("❌ Error fetching messages:", err);
+    res.status(500).json({ error: 'Failed to fetch messages' });
+  }
+});
+
+
 // ✅ MongoDB Connection
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('✅ MongoDB connected'))
@@ -58,6 +70,15 @@ io.on('connection', (socket) => {
     await message.save();
     io.emit('receiveMessage', message); // broadcast the saved message
   });
+    // ✅ Typing Indicator
+socket.on("typing", () => {
+  socket.broadcast.emit("userTyping", socket.username);
+});
+
+socket.on("stopTyping", () => {
+  socket.broadcast.emit("userStoppedTyping", socket.username);
+});
+
 
   // Handle disconnect
   socket.on('disconnect', () => {

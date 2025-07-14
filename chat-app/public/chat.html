@@ -5,13 +5,19 @@
   <title>Chat App – Real-Time Messaging</title>
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <link rel="stylesheet" href="style.css" />
+  <style>
+    #typingStatus {
+      font-style: italic;
+      color: #888;
+      margin-top: 5px;
+    }
+  </style>
 </head>
 <body>
   <div class="container">
     <button id="darkToggle">🌙 Toggle Dark Mode</button>
     <h2>💬 Chat Room</h2>
 
-    <!-- User Info -->
     <div id="userInfo">
       👤 Logged in as: <span id="currentUserDisplay"></span>
       <button id="logoutBtn">🚪 Logout</button>
@@ -20,10 +26,10 @@
     <h3>🟢 Online Users</h3>
     <ul id="onlineList"></ul>
 
-    <!-- Chat Messages -->
+    <div id="loading">⏳ Loading messages...</div>
     <div id="messages"></div>
+    <div id="typingStatus"></div>
 
-    <!-- Message Input -->
     <div class="input-area">
       <input id="msgInput" type="text" placeholder="Type your message..." />
       <button onclick="insertEmoji('😊')">😊</button>
@@ -34,87 +40,133 @@
   </div>
 
   <script>
-  const socket = io("http://localhost:5050");
-  const messagesDiv = document.getElementById("messages");
-  const input = document.getElementById("msgInput");
-  const currentUser = localStorage.getItem("username") || "Guest";
-  document.getElementById("currentUserDisplay").textContent = currentUser;
-  socket.emit("userConnected", currentUser);
+    const socket = io("http://localhost:5050");
+    const messagesDiv = document.getElementById("messages");
+    const input = document.getElementById("msgInput");
+    const typingStatus = document.getElementById("typingStatus");
+    const currentUser = localStorage.getItem("username") || "Guest";
+    document.getElementById("currentUserDisplay").textContent = currentUser;
+    socket.emit("userConnected", currentUser);
 
-  // Auto-focus input on page load
-  input.focus();
+    input.focus();
 
-  socket.on("connect", () => {
-    console.log("✅ Connected:", socket.id);
-  });
-
-  socket.on("receiveMessage", (data) => {
-    const msg = document.createElement("div");
-    msg.className = data.username === currentUser ? "message self" : "message";
-
-    const time = new Date(data.timestamp).toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit'
+    socket.on("connect", () => {
+      console.log("✅ Connected:", socket.id);
     });
 
-    msg.innerHTML = `<strong>${data.username}</strong>: ${data.text} <span class="timestamp">${time}</span>`;
-    messagesDiv.appendChild(msg);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-  });
+    // Fetch chat history
+    window.addEventListener("DOMContentLoaded", async () => {
+      try {
+        const res = await fetch("http://localhost:5050/api/messages");
+        const messages = await res.json();
 
-  function sendMessage() {
-    const message = input.value.trim();
-    if (message !== "") {
-      socket.emit("sendMessage", {
-        username: currentUser,
-        text: message
+        document.getElementById("loading").style.display = "none";
+
+        messages.forEach((data) => {
+          appendMessage(data);
+        });
+
+        messagesDiv.scrollTo({ top: messagesDiv.scrollHeight, behavior: "smooth" });
+      } catch (err) {
+        console.error("❌ Failed to load messages:", err);
+      }
+    });
+
+    socket.on("receiveMessage", (data) => {
+      appendMessage(data);
+      messagesDiv.scrollTo({ top: messagesDiv.scrollHeight, behavior: "smooth" });
+    });
+
+    function sendMessage() {
+      const message = input.value.trim();
+      if (message !== "") {
+        socket.emit("sendMessage", {
+          username: currentUser,
+          text: message
+        });
+        input.value = "";
+        input.focus();
+        socket.emit("stopTyping");
+      }
+    }
+
+    function appendMessage(data) {
+      const msg = document.createElement("div");
+      msg.className = data.username === currentUser ? "message self" : "message";
+
+      const time = new Date(data.timestamp).toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit'
       });
-      input.value = "";
-      input.focus(); // ✅ Auto-focus again after sending
-    }
-  }
 
-  // Update online user list
-  socket.on("updateUsers", (users) => {
-    const onlineList = document.getElementById("onlineList");
-    onlineList.innerHTML = "";
-    users.forEach(user => {
-      const li = document.createElement("li");
-      li.textContent = user;
-      onlineList.appendChild(li);
+      msg.innerHTML = `<strong>${data.username}</strong>: ${data.text} <span class="timestamp">${time}</span>`;
+      messagesDiv.appendChild(msg);
+    }
+
+    // Update online users
+    socket.on("updateUsers", (users) => {
+      const onlineList = document.getElementById("onlineList");
+      onlineList.innerHTML = "";
+      users.forEach(user => {
+        const li = document.createElement("li");
+        li.textContent = user;
+        onlineList.appendChild(li);
+      });
     });
-  });
 
-  // Logout
-  document.getElementById("logoutBtn").addEventListener("click", () => {
-    localStorage.removeItem("username");
-    window.location.href = "login.html";
-  });
+    // Logout
+    document.getElementById("logoutBtn").addEventListener("click", () => {
+      localStorage.clear();
+      window.location.href = "login.html";
+    });
 
-  // Toggle Dark Mode
-  const toggleBtn = document.getElementById("darkToggle");
-  toggleBtn.addEventListener("click", () => {
-    document.body.classList.toggle("dark");
-    localStorage.setItem("theme", document.body.classList.contains("dark") ? "dark" : "light");
-  });
+    // Dark mode
+    const toggleBtn = document.getElementById("darkToggle");
+    toggleBtn.addEventListener("click", () => {
+      document.body.classList.toggle("dark");
+      localStorage.setItem("theme", document.body.classList.contains("dark") ? "dark" : "light");
+    });
 
-  if (localStorage.getItem("theme") === "dark") {
-    document.body.classList.add("dark");
-  }
-
-  // ✅ Enable emoji input via keyboard or OS emoji panel
-  input.addEventListener("keydown", function (e) {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      sendMessage();
+    if (localStorage.getItem("theme") === "dark") {
+      document.body.classList.add("dark");
     }
-  });
 
+    // Emoji insertion
     function insertEmoji(emoji) {
-    input.value += emoji;
-    input.focus(); // focus after emoji
-  }
-</script>
+      input.value += emoji;
+      input.focus();
+    }
 
+    // Typing Indicator
+    let typingTimeout;
+
+    input.addEventListener("input", () => {
+      socket.emit("typing");
+      clearTimeout(typingTimeout);
+      typingTimeout = setTimeout(() => {
+        socket.emit("stopTyping");
+      }, 1000);
+    });
+
+    socket.on("userTyping", (username) => {
+      if (username !== currentUser) {
+        typingStatus.textContent = `${username} is typing...`;
+      }
+    });
+
+    socket.on("userStoppedTyping", (username) => {
+      if (username !== currentUser) {
+        typingStatus.textContent = "";
+      }
+    });
+
+    // Send message on Enter
+    input.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+  </script>
 </body>
 </html>
