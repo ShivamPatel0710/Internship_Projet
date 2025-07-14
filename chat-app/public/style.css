@@ -1,46 +1,36 @@
 body {
   font-family: 'Segoe UI', sans-serif;
-  background-color: #f0f2f5;
+  background-color: #eef2f5;
   margin: 0;
   padding: 0;
   display: flex;
-  height: 100vh;
-  align-items: center;
   justify-content: center;
+  align-items: center;
+  height: 100vh;
 }
 
 .container {
   background: white;
-  border-radius: 10px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1);
   padding: 20px;
   width: 90%;
-  max-width: 600px;
+  max-width: 500px;
+  display: flex;
+  flex-direction: column;
 }
 
 h2 {
   margin-top: 0;
   text-align: center;
+  color: #333;
 }
 
 #userInfo {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
-}
-
-#onlineUsers {
-  background-color: #e7f4ea;
-  padding: 10px;
-  border-radius: 8px;
-  margin-bottom: 10px;
   font-size: 0.9rem;
-}
-
-#userList {
-  list-style: none;
-  padding-left: 15px;
+  margin-bottom: 10px;
+  text-align: right;
+  color: #555;
 }
 
 #messages {
@@ -49,33 +39,41 @@ h2 {
   padding: 10px;
   height: 250px;
   overflow-y: auto;
-  margin-bottom: 10px;
-  background-color: #fefefe;
+  margin-bottom: 15px;
+  background-color: #f9f9f9;
 }
 
-.input-group {
+.message {
+  padding: 6px 10px;
+  margin-bottom: 8px;
+  background-color: #e0e0e0;
+  border-radius: 8px;
+}
+
+.message.self {
+  background-color: #cce5ff;
+  text-align: right;
+}
+
+.input-area {
   display: flex;
 }
 
 #msgInput {
-  flex: 1;
+  flex-grow: 1;
   padding: 10px;
   font-size: 1rem;
-  border-radius: 5px;
+  border-radius: 6px;
   border: 1px solid #ccc;
 }
 
 button {
-  padding: 10px 15px;
+  padding: 10px 16px;
   margin-left: 10px;
   font-size: 1rem;
-  background-color: #007bff;
+  background-color: #2d8cf0;
   color: white;
   border: none;
-  border-radius: 5px;
+  border-radius: 6px;
   cursor: pointer;
-}
-
-button:hover {
-  background-color: #0056b3;
 }

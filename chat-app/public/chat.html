@@ -2,83 +2,56 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Real-Time Chat</title>
+  <title>Chat App – Real-Time Messaging</title>
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="container">
-    <h2>💬 Real-Time Chat</h2>
+    <h2>💬 Chat Room</h2>
 
-    <div id="userInfo">
-      👤 Logged in as: <span id="currentUserDisplay"></span>
-      <button id="logoutBtn">Logout</button>
-    </div>
+    <!-- User Info -->
+    <div id="userInfo">👤 Logged in as: <span id="currentUserDisplay"></span></div>
 
-    <div id="onlineUsers">
-      🟢 Online Users:
-      <ul id="userList"></ul>
-    </div>
-
+    <!-- Chat Messages -->
     <div id="messages"></div>
 
-    <div class="input-group">
-      <input id="msgInput" type="text" placeholder="Type a message... 😊" />
+    <!-- Message Input -->
+    <div class="input-area">
+      <input id="msgInput" type="text" placeholder="Type your message..." />
       <button onclick="sendMessage()">Send</button>
     </div>
   </div>
 
   <script>
     const socket = io("http://localhost:5050");
+    const messagesDiv = document.getElementById("messages");
+    const input = document.getElementById("msgInput");
     const currentUser = localStorage.getItem("username") || "Guest";
     document.getElementById("currentUserDisplay").textContent = currentUser;
 
-    const messagesDiv = document.getElementById("messages");
-    const input = document.getElementById("msgInput");
-
     socket.on("connect", () => {
       console.log("✅ Connected:", socket.id);
-      socket.emit("userConnected", currentUser);
     });
 
     socket.on("receiveMessage", (data) => {
       const msg = document.createElement("div");
-      const time = new Date(data.timestamp).toLocaleTimeString();
-      msg.innerHTML = `🕓 <small>${time}</small><br><strong>${data.username}:</strong> ${data.text}`;
+      msg.className = data.username === currentUser ? "message self" : "message";
+      msg.innerHTML = `<strong>${data.username}:</strong> ${data.text}`;
       messagesDiv.appendChild(msg);
-      messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    });
-
-    socket.on("updateUsers", (users) => {
-      const userList = document.getElementById("userList");
-      userList.innerHTML = "";
-      users.forEach(user => {
-        const li = document.createElement("li");
-        li.textContent = user;
-        userList.appendChild(li);
-      });
+      messagesDiv.scrollTop = messagesDiv.scrollHeight; // auto-scroll
     });
 
     function sendMessage() {
       const message = input.value.trim();
-      if (message) {
+      if (message !== "") {
         socket.emit("sendMessage", {
           username: currentUser,
-          text: message,
-          timestamp: new Date().toISOString()
+          text: message
         });
         input.value = "";
       }
     }
-
-    document.getElementById("logoutBtn").addEventListener("click", () => {
-      localStorage.clear();
-      window.location.href = "login.html";
-    });
-
-    window.addEventListener("beforeunload", () => {
-      socket.emit("userDisconnected", currentUser);
-    });
   </script>
 </body>
 </html>
