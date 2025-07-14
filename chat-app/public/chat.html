@@ -8,10 +8,17 @@
 </head>
 <body>
   <div class="container">
+    <button id="darkToggle">🌙 Toggle Dark Mode</button>
     <h2>💬 Chat Room</h2>
 
     <!-- User Info -->
-    <div id="userInfo">👤 Logged in as: <span id="currentUserDisplay"></span></div>
+    <div id="userInfo">
+      👤 Logged in as: <span id="currentUserDisplay"></span>
+      <button id="logoutBtn">🚪 Logout</button>
+    </div>
+
+    <h3>🟢 Online Users</h3>
+    <ul id="onlineList"></ul>
 
     <!-- Chat Messages -->
     <div id="messages"></div>
@@ -19,39 +26,95 @@
     <!-- Message Input -->
     <div class="input-area">
       <input id="msgInput" type="text" placeholder="Type your message..." />
+      <button onclick="insertEmoji('😊')">😊</button>
+      <button onclick="insertEmoji('🎉')">🎉</button>
+      <button onclick="insertEmoji('😂')">😂</button>
       <button onclick="sendMessage()">Send</button>
     </div>
   </div>
 
   <script>
-    const socket = io("http://localhost:5050");
-    const messagesDiv = document.getElementById("messages");
-    const input = document.getElementById("msgInput");
-    const currentUser = localStorage.getItem("username") || "Guest";
-    document.getElementById("currentUserDisplay").textContent = currentUser;
+  const socket = io("http://localhost:5050");
+  const messagesDiv = document.getElementById("messages");
+  const input = document.getElementById("msgInput");
+  const currentUser = localStorage.getItem("username") || "Guest";
+  document.getElementById("currentUserDisplay").textContent = currentUser;
+  socket.emit("userConnected", currentUser);
 
-    socket.on("connect", () => {
-      console.log("✅ Connected:", socket.id);
+  // Auto-focus input on page load
+  input.focus();
+
+  socket.on("connect", () => {
+    console.log("✅ Connected:", socket.id);
+  });
+
+  socket.on("receiveMessage", (data) => {
+    const msg = document.createElement("div");
+    msg.className = data.username === currentUser ? "message self" : "message";
+
+    const time = new Date(data.timestamp).toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit'
     });
 
-    socket.on("receiveMessage", (data) => {
-      const msg = document.createElement("div");
-      msg.className = data.username === currentUser ? "message self" : "message";
-      msg.innerHTML = `<strong>${data.username}:</strong> ${data.text}`;
-      messagesDiv.appendChild(msg);
-      messagesDiv.scrollTop = messagesDiv.scrollHeight; // auto-scroll
-    });
+    msg.innerHTML = `<strong>${data.username}</strong>: ${data.text} <span class="timestamp">${time}</span>`;
+    messagesDiv.appendChild(msg);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+  });
 
-    function sendMessage() {
-      const message = input.value.trim();
-      if (message !== "") {
-        socket.emit("sendMessage", {
-          username: currentUser,
-          text: message
-        });
-        input.value = "";
-      }
+  function sendMessage() {
+    const message = input.value.trim();
+    if (message !== "") {
+      socket.emit("sendMessage", {
+        username: currentUser,
+        text: message
+      });
+      input.value = "";
+      input.focus(); // ✅ Auto-focus again after sending
     }
-  </script>
+  }
+
+  // Update online user list
+  socket.on("updateUsers", (users) => {
+    const onlineList = document.getElementById("onlineList");
+    onlineList.innerHTML = "";
+    users.forEach(user => {
+      const li = document.createElement("li");
+      li.textContent = user;
+      onlineList.appendChild(li);
+    });
+  });
+
+  // Logout
+  document.getElementById("logoutBtn").addEventListener("click", () => {
+    localStorage.removeItem("username");
+    window.location.href = "login.html";
+  });
+
+  // Toggle Dark Mode
+  const toggleBtn = document.getElementById("darkToggle");
+  toggleBtn.addEventListener("click", () => {
+    document.body.classList.toggle("dark");
+    localStorage.setItem("theme", document.body.classList.contains("dark") ? "dark" : "light");
+  });
+
+  if (localStorage.getItem("theme") === "dark") {
+    document.body.classList.add("dark");
+  }
+
+  // ✅ Enable emoji input via keyboard or OS emoji panel
+  input.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+
+    function insertEmoji(emoji) {
+    input.value += emoji;
+    input.focus(); // focus after emoji
+  }
+</script>
+
 </body>
 </html>

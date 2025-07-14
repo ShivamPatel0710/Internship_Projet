@@ -1,79 +1,134 @@
+/* Global Reset & Base */
 body {
-  font-family: 'Segoe UI', sans-serif;
-  background-color: #eef2f5;
+  font-family: Arial, sans-serif;
+  background-color: #f4f4f4;
+  color: #111;
   margin: 0;
-  padding: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
+  padding: 20px;
+  transition: background-color 0.3s, color 0.3s;
+}
+
+.dark {
+  background-color: #121212;
+  color: #eaeaea;
 }
 
 .container {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1);
+  max-width: 700px;
+  margin: auto;
+  border-radius: 10px;
   padding: 20px;
-  width: 90%;
-  max-width: 500px;
-  display: flex;
-  flex-direction: column;
+  background-color: #ffffff;
+  box-shadow: 0 0 10px rgba(0,0,0,0.1);
+  transition: background-color 0.3s;
 }
 
-h2 {
+.dark .container {
+  background-color: #1e1e1e;
+}
+
+h2, h3 {
   margin-top: 0;
-  text-align: center;
-  color: #333;
 }
 
 #userInfo {
-  font-size: 0.9rem;
   margin-bottom: 10px;
-  text-align: right;
-  color: #555;
+}
+
+#userInfo button {
+  margin-left: 10px;
+  padding: 6px 10px;
+  cursor: pointer;
 }
 
 #messages {
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  padding: 10px;
-  height: 250px;
+  height: 300px;
   overflow-y: auto;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 10px;
+  background-color: #fafafa;
   margin-bottom: 15px;
-  background-color: #f9f9f9;
+}
+
+.dark #messages {
+  background-color: #2c2c2c;
+  border-color: #444;
 }
 
 .message {
-  padding: 6px 10px;
-  margin-bottom: 8px;
-  background-color: #e0e0e0;
-  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  border-radius: 6px;
+  background-color: #eee;
+  max-width: 80%;
+  word-wrap: break-word;
+}
+
+.dark .message {
+  background-color: #3a3a3a;
 }
 
 .message.self {
-  background-color: #cce5ff;
+  background-color: #d1f1ff;
+  margin-left: auto;
   text-align: right;
+}
+
+.dark .message.self {
+  background-color: #005f73;
+  color: #fff;
+}
+
+.timestamp {
+  font-size: 0.75em;
+  color: #777;
+  margin-left: 8px;
+}
+
+.dark .timestamp {
+  color: #bbb;
 }
 
 .input-area {
   display: flex;
+  gap: 10px;
 }
 
-#msgInput {
-  flex-grow: 1;
+.input-area input {
+  flex: 1;
   padding: 10px;
-  font-size: 1rem;
   border-radius: 6px;
   border: 1px solid #ccc;
 }
 
-button {
-  padding: 10px 16px;
-  margin-left: 10px;
-  font-size: 1rem;
-  background-color: #2d8cf0;
-  color: white;
+.input-area button {
+  padding: 10px 15px;
+  background-color: #007bff;
   border: none;
   border-radius: 6px;
+  color: white;
   cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.input-area button:hover {
+  background-color: #0056b3;
+}
+
+/* Dark mode adjustments */
+.dark input,
+.dark .input-area button {
+  background-color: #333;
+  color: #eee;
+  border: 1px solid #555;
+}
+
+ul#onlineList {
+  list-style: none;
+  padding-left: 20px;
+}
+
+ul#onlineList li {
+  margin-bottom: 5px;
 }
