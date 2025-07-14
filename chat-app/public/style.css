@@ -1,0 +1,81 @@
+body {
+  font-family: 'Segoe UI', sans-serif;
+  background-color: #f0f2f5;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  height: 100vh;
+  align-items: center;
+  justify-content: center;
+}
+
+.container {
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+  padding: 20px;
+  width: 90%;
+  max-width: 600px;
+}
+
+h2 {
+  margin-top: 0;
+  text-align: center;
+}
+
+#userInfo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+#onlineUsers {
+  background-color: #e7f4ea;
+  padding: 10px;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  font-size: 0.9rem;
+}
+
+#userList {
+  list-style: none;
+  padding-left: 15px;
+}
+
+#messages {
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 10px;
+  height: 250px;
+  overflow-y: auto;
+  margin-bottom: 10px;
+  background-color: #fefefe;
+}
+
+.input-group {
+  display: flex;
+}
+
+#msgInput {
+  flex: 1;
+  padding: 10px;
+  font-size: 1rem;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+}
+
+button {
+  padding: 10px 15px;
+  margin-left: 10px;
+  font-size: 1rem;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #0056b3;
+}
