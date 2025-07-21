@@ -2,14 +2,64 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Login & Register</title>
+  <title>Login & Register – Chat App</title>
   <style>
-    body { font-family: sans-serif; padding: 20px; }
-    form { margin-bottom: 20px; }
-    input, button { padding: 8px; margin: 5px; }
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background-color: #f4f4f4;
+      color: #111;
+      transition: background-color 0.3s, color 0.3s;
+    }
+
+    .dark {
+      background-color: #121212;
+      color: #eee;
+    }
+
+    input, button {
+      padding: 10px;
+      margin: 5px 0;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    form {
+      max-width: 400px;
+      margin-bottom: 30px;
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .dark form {
+      background: #1f1f1f;
+    }
+
+    button {
+      background-color: #007bff;
+      border: none;
+      color: white;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    #darkToggle {
+      margin-bottom: 20px;
+      padding: 6px 10px;
+    }
   </style>
 </head>
 <body>
+  <!-- 🔘 Dark Mode Toggle -->
+  <button id="darkToggle">🌙 Toggle Dark Mode</button>
+
+  <!-- 🔐 Registration Form -->
   <h2>Register</h2>
   <form id="registerForm">
     <input type="text" id="regUsername" placeholder="Username" required />
@@ -17,6 +67,7 @@
     <button type="submit">Register</button>
   </form>
 
+  <!-- 🔓 Login Form -->
   <h2>Login</h2>
   <form id="loginForm">
     <input type="text" id="loginUsername" placeholder="Username" required />
@@ -25,47 +76,77 @@
   </form>
 
   <script>
-    const BASE_URL = "http://localhost:5050/api/auth";
+    const BASE_URL = "http://localhost:5050/api/auth"; // Change to production if deployed
 
-    // Register
+    // ✅ Handle Register
     document.getElementById("registerForm").addEventListener("submit", async (e) => {
       e.preventDefault();
-      const username = document.getElementById("regUsername").value;
-      const password = document.getElementById("regPassword").value;
+      const username = document.getElementById("regUsername").value.trim();
+      const password = document.getElementById("regPassword").value.trim();
 
-      const res = await fetch(`${BASE_URL}/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      });
+      if (!username || !password) return alert("Username and password are required.");
 
-      const data = await res.json();
-      alert(data.message || "Registered!");
-    });
+      try {
+        const res = await fetch(`${BASE_URL}/register`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password }),
+        });
 
-    // Login
-    document.getElementById("loginForm").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const username = document.getElementById("loginUsername").value;
-      const password = document.getElementById("loginPassword").value;
+        const data = await res.json();
+        alert(data.message || "Registered!");
 
-      const res = await fetch(`${BASE_URL}/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      });
-
-      const data = await res.json();
-
-      if (data.token) {
-        alert("Login successful!");
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("username", data.username);
-        window.location.href = "chat.html"; // Step 2 page
-      } else {
-        alert(data.message || "Login failed");
+      } catch (err) {
+        console.error("Registration failed:", err);
+        alert("Something went wrong. Try again.");
       }
     });
+
+    // ✅ Handle Login
+    document.getElementById("loginForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const username = document.getElementById("loginUsername").value.trim();
+      const password = document.getElementById("loginPassword").value.trim();
+
+      if (!username || !password) return alert("Username and password are required.");
+
+      try {
+        const res = await fetch(`${BASE_URL}/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password }),
+        });
+
+        const data = await res.json();
+
+        if (data.token) {
+          // ✅ Store auth token and username
+          localStorage.setItem("token", data.token);
+          localStorage.setItem("username", data.username);
+          alert("Login successful!");
+
+          // ✅ Redirect to chat
+          window.location.href = "chat.html";
+        } else {
+          alert(data.message || "Login failed");
+        }
+      } catch (err) {
+        console.error("Login failed:", err);
+        alert("Something went wrong. Try again.");
+      }
+    });
+
+    // ✅ Dark Mode Toggle
+    const darkBtn = document.getElementById("darkToggle");
+    darkBtn.addEventListener("click", () => {
+      document.body.classList.toggle("dark");
+      localStorage.setItem("theme", document.body.classList.contains("dark") ? "dark" : "light");
+    });
+
+    // ✅ Apply saved theme on load
+    if (localStorage.getItem("theme") === "dark") {
+      document.body.classList.add("dark");
+    }
   </script>
 </body>
 </html>

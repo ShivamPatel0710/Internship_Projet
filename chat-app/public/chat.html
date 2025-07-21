@@ -11,6 +11,18 @@
       color: #888;
       margin-top: 5px;
     }
+    .private-message {
+      background-color: #ffe0e0;
+      padding: 5px;
+      border-radius: 6px;
+      margin: 5px 0;
+    }
+    .room-message {
+      background-color: #e0f7ff;
+      padding: 5px;
+      border-radius: 6px;
+      margin: 5px 0;
+    }
   </style>
 </head>
 <body>
@@ -26,10 +38,34 @@
     <h3>🟢 Online Users</h3>
     <ul id="onlineList"></ul>
 
+    <!-- 🔒 Private Messaging UI -->
+    <h3>📩 Send Private Message</h3>
+    <select id="privateUserSelect">
+      <option value="">--Select User--</option>
+    </select>
+    <div class="input-area" style="margin-top: 5px;">
+      <input type="text" id="privateMessageInput" placeholder="Type a private message..." />
+      <button id="sendPrivateBtn">Send Private</button>
+    </div>
+
+    <!-- 🏠 Room Messaging UI -->
+    <h3>🏠 Join Room</h3>
+    <select id="roomSelect">
+      <option value="">--Choose Room--</option>
+      <option value="sports">Sports</option>
+      <option value="tech">Tech</option>
+      <option value="music">Music</option>
+    </select>
+    <div class="input-area" style="margin-top: 5px;">
+      <input type="text" id="roomMessageInput" placeholder="Type a room message..." />
+      <button id="sendRoomBtn">Send to Room</button>
+    </div>
+
     <div id="loading">⏳ Loading messages...</div>
     <div id="messages"></div>
     <div id="typingStatus"></div>
 
+    <!-- 🌐 Public Chat -->
     <div class="input-area">
       <input id="msgInput" type="text" placeholder="Type your message..." />
       <button onclick="insertEmoji('😊')">😊</button>
@@ -40,87 +76,165 @@
   </div>
 
   <script>
-    const socket = io("http://localhost:5050");
+    const socket = io("http://localhost:5050", {
+  auth: {
+    token: localStorage.getItem("token"),
+  }
+});
+    socket.on("connect_error", (err) => {
+      console.error("Connection error:", err);
+      alert("You must be logged in to access the chat.");
+      localStorage.clear();
+      window.location.href = "index.html"; // Redirect to login
+    });
+
+    const currentUser = localStorage.getItem("username") || "Guest";
+    document.getElementById("currentUserDisplay").textContent = currentUser;
+
+    // DOM Elements
     const messagesDiv = document.getElementById("messages");
     const input = document.getElementById("msgInput");
     const typingStatus = document.getElementById("typingStatus");
-    const currentUser = localStorage.getItem("username") || "Guest";
-    document.getElementById("currentUserDisplay").textContent = currentUser;
-    socket.emit("userConnected", currentUser);
+    const privateUserSelect = document.getElementById("privateUserSelect");
+    const privateMessageInput = document.getElementById("privateMessageInput");
+    const sendPrivateBtn = document.getElementById("sendPrivateBtn");
+    const roomSelect = document.getElementById("roomSelect");
+    const roomInput = document.getElementById("roomMessageInput");
+    const sendRoomBtn = document.getElementById("sendRoomBtn");
 
+    // Focus input on load
     input.focus();
+    
 
-    socket.on("connect", () => {
-      console.log("✅ Connected:", socket.id);
-    });
-
-    // Fetch chat history
+    // ✅ Load public messages
     window.addEventListener("DOMContentLoaded", async () => {
-      try {
-        const res = await fetch("http://localhost:5050/api/messages");
-        const messages = await res.json();
+      const res = await fetch("http://localhost:5050/api/messages", {
+  headers: {
+    Authorization: `Bearer ${localStorage.getItem("token")}`
+  }
+});
 
-        document.getElementById("loading").style.display = "none";
-
-        messages.forEach((data) => {
-          appendMessage(data);
-        });
-
-        messagesDiv.scrollTo({ top: messagesDiv.scrollHeight, behavior: "smooth" });
-      } catch (err) {
-        console.error("❌ Failed to load messages:", err);
-      }
+      const messages = await res.json();
+      document.getElementById("loading").style.display = "none";
+      messages.forEach(appendMessage);
     });
 
-    socket.on("receiveMessage", (data) => {
-      appendMessage(data);
-      messagesDiv.scrollTo({ top: messagesDiv.scrollHeight, behavior: "smooth" });
-    });
-
+    // ✅ Send public message
     function sendMessage() {
-      const message = input.value.trim();
-      if (message !== "") {
-        socket.emit("sendMessage", {
-          username: currentUser,
-          text: message
-        });
-        input.value = "";
-        input.focus();
-        socket.emit("stopTyping");
-      }
+      const text = input.value.trim();
+      if (!text) return;
+      socket.emit("sendMessage", { username: currentUser, text });
+      input.value = "";
+      input.focus();
+      socket.emit("stopTyping");
     }
 
+    // ✅ Display public message
     function appendMessage(data) {
       const msg = document.createElement("div");
       msg.className = data.username === currentUser ? "message self" : "message";
-
-      const time = new Date(data.timestamp).toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-
+      const time = new Date(data.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       msg.innerHTML = `<strong>${data.username}</strong>: ${data.text} <span class="timestamp">${time}</span>`;
       messagesDiv.appendChild(msg);
     }
 
-    // Update online users
+    socket.on("receiveMessage", appendMessage);
+
+    // ✅ Typing Indicator
+    let typingTimeout;
+    input.addEventListener("input", () => {
+      socket.emit("typing");
+      clearTimeout(typingTimeout);
+      typingTimeout = setTimeout(() => socket.emit("stopTyping"), 1000);
+    });
+
+    socket.on("userTyping", (username) => {
+      if (username !== currentUser) typingStatus.textContent = `${username} is typing...`;
+    });
+
+    socket.on("userStoppedTyping", () => typingStatus.textContent = "");
+
+    // ✅ Private Messaging
+    sendPrivateBtn.addEventListener("click", () => {
+      const selectedUser = privateUserSelect.value;
+      const message = privateMessageInput.value.trim();
+      if (!selectedUser || !message) return;
+      socket.emit("privateMessage", { from: currentUser, to: selectedUser, message });
+      displayPrivateMessage({ from: currentUser, to: selectedUser, message, timestamp: new Date() });
+      privateMessageInput.value = "";
+    });
+
+    socket.on("receivePrivateMessage", displayPrivateMessage);
+
+    function displayPrivateMessage(data) {
+      const div = document.createElement("div");
+      div.className = "private-message";
+      const time = new Date(data.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const label = data.from === currentUser ? `To ${data.to}` : `From ${data.from}`;
+      div.innerHTML = `<strong>🔒 ${label}:</strong> ${data.message} <span class="timestamp">${time}</span>`;
+      messagesDiv.appendChild(div);
+    }
+
+    // ✅ Room Messaging
+    let currentRoom = "";
+
+    roomSelect.addEventListener("change", () => {
+      const room = roomSelect.value;
+      if (!room) return;
+      currentRoom = room;
+      messagesDiv.innerHTML = ""; // ✅ Clear previous messages
+      socket.emit("joinRoom", { username: currentUser, room });
+    });
+
+    socket.on("roomHistory", (history) => {
+      messagesDiv.innerHTML += `<hr/><strong>📚 Room History:</strong><br/>`;
+      history.forEach(msg => displayRoomMessage(msg));
+    });
+
+    sendRoomBtn.addEventListener("click", () => {
+      const text = roomInput.value.trim();
+      if (!currentRoom || !text) return;
+      socket.emit("roomMessage", { username: currentUser, room: currentRoom, text });
+      roomInput.value = "";
+    });
+
+    socket.on("roomMessage", displayRoomMessage);
+
+    function displayRoomMessage(data) {
+      const div = document.createElement("div");
+      div.className = "room-message";
+      const time = new Date(data.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      div.innerHTML = `<strong>🏠 ${data.room} | ${data.username}:</strong> ${data.text} <span class="timestamp">${time}</span>`;
+      messagesDiv.appendChild(div);
+    }
+
+      
+
+    // ✅ Update Online User List
     socket.on("updateUsers", (users) => {
       const onlineList = document.getElementById("onlineList");
+      privateUserSelect.innerHTML = '<option value="">--Select User--</option>';
       onlineList.innerHTML = "";
+
       users.forEach(user => {
         const li = document.createElement("li");
         li.textContent = user;
         onlineList.appendChild(li);
+        if (user !== currentUser) {
+          const option = document.createElement("option");
+          option.value = user;
+          option.textContent = user;
+          privateUserSelect.appendChild(option);
+        }
       });
     });
 
-    // Logout
+    // ✅ Logout and Dark Mode
     document.getElementById("logoutBtn").addEventListener("click", () => {
       localStorage.clear();
-      window.location.href = "login.html";
+      window.location.href = "index.html";
     });
 
-    // Dark mode
     const toggleBtn = document.getElementById("darkToggle");
     toggleBtn.addEventListener("click", () => {
       document.body.classList.toggle("dark");
@@ -131,42 +245,21 @@
       document.body.classList.add("dark");
     }
 
-    // Emoji insertion
+    // ✅ Enter Key Shortcuts
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") sendMessage(); });
+    privateMessageInput.addEventListener("keydown", (e) => { if (e.key === "Enter") sendPrivateBtn.click(); });
+    roomInput.addEventListener("keydown", (e) => { if (e.key === "Enter") sendRoomBtn.click(); });
+
+  //     socket.emit("getRoomHistory", roomName, (messages) => {
+  // // Display messages
+  // });
+
+
+    // ✅ Emoji Insertion
     function insertEmoji(emoji) {
       input.value += emoji;
       input.focus();
     }
-
-    // Typing Indicator
-    let typingTimeout;
-
-    input.addEventListener("input", () => {
-      socket.emit("typing");
-      clearTimeout(typingTimeout);
-      typingTimeout = setTimeout(() => {
-        socket.emit("stopTyping");
-      }, 1000);
-    });
-
-    socket.on("userTyping", (username) => {
-      if (username !== currentUser) {
-        typingStatus.textContent = `${username} is typing...`;
-      }
-    });
-
-    socket.on("userStoppedTyping", (username) => {
-      if (username !== currentUser) {
-        typingStatus.textContent = "";
-      }
-    });
-
-    // Send message on Enter
-    input.addEventListener("keydown", function (e) {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        sendMessage();
-      }
-    });
   </script>
 </body>
 </html>

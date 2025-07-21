@@ -6,11 +6,21 @@ const socketIo = require('socket.io');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
+const jwt = require('jsonwebtoken');
 
+// Middleware
+const verifyToken = require('./middleware/verifyToken');
+
+// Models
 const Message = require('./models/message');
+const PrivateMessage = require('./models/PrivateMessage');
+const RoomMessage = require('./models/RoomMessage');
+
+// Routes
 const authRoutes = require('./routes/authRoutes');
 const protectedRoutes = require('./routes/protected');
 
+// App setup
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
@@ -20,74 +30,162 @@ const io = socketIo(server, {
   }
 });
 
+// Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
+
+// API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/user', protectedRoutes);
 
-// ✅ Get chat history (latest 100 messages)
-app.get('/api/messages', async (req, res) => {
+// ✅ Secure - Public message history
+app.get('/api/messages', verifyToken, async (req, res) => {
   try {
     const messages = await Message.find().sort({ timestamp: 1 }).limit(100);
     res.json(messages);
   } catch (err) {
-    console.error("❌ Error fetching messages:", err);
     res.status(500).json({ error: 'Failed to fetch messages' });
   }
 });
 
+// ✅ Secure - Private message history
+app.get('/api/private-messages/:from/:to', verifyToken, async (req, res) => {
+  const { from, to } = req.params;
+  try {
+    const messages = await PrivateMessage.find({
+      $or: [{ from, to }, { from: to, to: from }]
+    }).sort({ timestamp: 1 });
+    res.json(messages);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch private messages' });
+  }
+});
 
 // ✅ MongoDB Connection
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('✅ MongoDB connected'))
   .catch(err => console.error(err));
 
-// ✅ Track online users (in-memory)
-let onlineUsers = {};
+// ========================================
+// ========== SOCKET.IO SETUP ============
+// ========================================
 
-// ✅ Socket.IO Events
+let onlineUsers = {};      // { socket.id: username }
+let userSockets = {};      // { username: socket.id }
+let userRooms = {};        // { username: room }
+
+// ✅ JWT Middleware for Socket.IO
+io.use((socket, next) => {
+  const token = socket.handshake.auth.token;
+  if (!token) return next(new Error("Authentication error"));
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    socket.username = decoded.username;
+    next();
+  } catch (err) {
+    return next(new Error("Authentication error"));
+  }
+});
+
 io.on('connection', (socket) => {
   console.log(`📡 New user connected: ${socket.id}`);
 
-  // Handle new user login
-  socket.on('userConnected', (username) => {
-    socket.username = username;
-    onlineUsers[socket.id] = username;
-    io.emit('updateUsers', Object.values(onlineUsers)); // broadcast list
+  // ✅ Track user
+  onlineUsers[socket.id] = socket.username;
+  userSockets[socket.username] = socket.id;
+  io.emit('updateUsers', Object.values(userSockets));
+
+  // ✅ Join Room
+  socket.on("joinRoom", async ({ username, room }) => {
+    socket.join(room);
+    userRooms[username] = room;
+    console.log(`🏠 ${username} joined room: ${room}`);
+
+    try {
+      const history = await RoomMessage.find({ room }).sort({ timestamp: 1 });
+      socket.emit("roomHistory", history);
+    } catch (err) {
+      console.error("❌ Error loading room history:", err);
+    }
   });
 
-  // Handle message send
-  socket.on('sendMessage', async (data) => {
-    console.log('📨 Message received:', data);
+  // ✅ Room Message
+  socket.on("roomMessage", async ({ username, room, text }) => {
+    try {
+      const message = new RoomMessage({ room, username, text });
+      await message.save();
 
+      io.to(room).emit("roomMessage", {
+        username,
+        text,
+        room,
+        timestamp: message.timestamp
+      });
+    } catch (err) {
+      console.error("❌ Error saving room message:", err);
+    }
+  });
+
+  // ✅ Public Message
+  socket.on('sendMessage', async ({ username, text }) => {
     const message = new Message({
-      username: data.username || 'Guest',
-      text: data.text,
-      timestamp: data.timestamp || new Date()
+      username,
+      text,
+      timestamp: new Date()
     });
-
     await message.save();
-    io.emit('receiveMessage', message); // broadcast the saved message
+    io.emit('receiveMessage', message);
   });
-    // ✅ Typing Indicator
-socket.on("typing", () => {
-  socket.broadcast.emit("userTyping", socket.username);
-});
 
-socket.on("stopTyping", () => {
-  socket.broadcast.emit("userStoppedTyping", socket.username);
-});
+  // ✅ Private Message
+  socket.on('privateMessage', async ({ from, to, message }) => {
+    const toSocketId = userSockets[to];
+    const timestamp = new Date();
+    const newPrivateMsg = new PrivateMessage({ from, to, message, timestamp });
+    await newPrivateMsg.save();
 
+    socket.emit('privateMessage', { from, to, message, timestamp });
+    if (toSocketId) {
+      io.to(toSocketId).emit('privateMessage', { from, to, message, timestamp });
+    }
+  });
 
-  // Handle disconnect
+  // ✅ Typing Indicators
+  socket.on("typing", () => {
+    socket.broadcast.emit("userTyping", socket.username);
+  });
+
+  socket.on("stopTyping", () => {
+    socket.broadcast.emit("userStoppedTyping", socket.username);
+  });
+
+  // ✅ Get Room History on Demand
+  socket.on('getRoomHistory', async (roomName, callback) => {
+    try {
+      const messages = await RoomMessage.find({ room: roomName }).sort({ timestamp: 1 }).limit(100);
+      callback(messages);
+    } catch (err) {
+      console.error("❌ Error fetching room history:", err);
+      callback([]);
+    }
+  });
+
+  // ✅ Disconnect
   socket.on('disconnect', () => {
-    console.log(`❌ User disconnected: ${socket.id}`);
+    const username = onlineUsers[socket.id];
+    console.log(`❌ Disconnected: ${socket.id}`);
+    delete userSockets[username];
     delete onlineUsers[socket.id];
-    io.emit('updateUsers', Object.values(onlineUsers));
+    delete userRooms[username];
+    io.emit('updateUsers', Object.values(userSockets));
   });
 });
 
-// ✅ Start server
+// ========================================
+// ========== SERVER STARTUP =============
+// ========================================
+
 const PORT = process.env.PORT || 5050;
 server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
