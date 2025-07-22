@@ -130,15 +130,60 @@
     }
 
     // ✅ Display public message
-    function appendMessage(data) {
-      const msg = document.createElement("div");
-      msg.className = data.username === currentUser ? "message self" : "message";
-      const time = new Date(data.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      msg.innerHTML = `<strong>${data.username}</strong>: ${data.text} <span class="timestamp">${time}</span>`;
-      messagesDiv.appendChild(msg);
-    }
+function appendMessage(data) {
+  const msg = document.createElement("div");
+  msg.className = data.username === currentUser ? "message self" : "message";
+  const time = new Date(data.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-    socket.on("receiveMessage", appendMessage);
+  let editedTag = data.edited ? " <em>(edited)</em>" : "";
+
+  msg.innerHTML = `<strong>${data.username}</strong>: <span class="msg-text">${data.text}</span> ${editedTag} 
+    <span class="timestamp">${time}</span>`;
+
+  // Only show buttons if it's the current user's message
+  if (data.username === currentUser) {
+    const editBtn = document.createElement("button");
+    editBtn.textContent = "✏️";
+    editBtn.onclick = () => editMessage(msg, data);
+
+    const delBtn = document.createElement("button");
+    delBtn.textContent = "🗑️";
+    delBtn.onclick = () => deleteMessage(data._id);
+
+    msg.appendChild(editBtn);
+    msg.appendChild(delBtn);
+  }
+
+  messagesDiv.appendChild(msg);
+}
+
+// ✅ Edit message
+function editMessage(msgElement, messageData) {
+  const newText = prompt("Edit your message:", messageData.text);
+  if (!newText || newText.trim() === messageData.text) return;
+
+  fetch(`http://localhost:5050/api/messages/${messageData._id}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${localStorage.getItem("token")}`
+    },
+    body: JSON.stringify({ text: newText.trim() })
+  }).catch(err => console.error("Failed to edit:", err));
+}
+
+// ✅ Delete message
+function deleteMessage(id) {
+  if (!confirm("Are you sure you want to delete this message?")) return;
+
+  fetch(`http://localhost:5050/api/messages/${id}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${localStorage.getItem("token")}`
+    }
+  }).catch(err => console.error("Failed to delete:", err));
+}
+
 
     // ✅ Typing Indicator
     let typingTimeout;
@@ -260,6 +305,35 @@
       input.value += emoji;
       input.focus();
     }
+
+    // 🔁 Realtime update for edited messages
+socket.on("messageEdited", (data) => {
+  // Simple way: reload messages
+  messagesDiv.innerHTML = "";
+  fetch("http://localhost:5050/api/messages", {
+    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+  })
+    .then(res => res.json())
+    .then(messages => messages.forEach(appendMessage));
+});
+
+// ❌ Realtime update for deleted messages
+socket.on("messageDeleted", ({ id }) => {
+  const allMessages = document.querySelectorAll(".message, .message.self");
+  allMessages.forEach(div => {
+    if (div.innerHTML.includes(id)) {
+      div.remove();
+    }
+  });
+  // Or simply reload messages:
+  messagesDiv.innerHTML = "";
+  fetch("http://localhost:5050/api/messages", {
+    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+  })
+    .then(res => res.json())
+    .then(messages => messages.forEach(appendMessage));
+});
+
   </script>
 </body>
 </html>

@@ -38,6 +38,51 @@ app.use(express.static(path.join(__dirname, '../public')));
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/user', protectedRoutes);
+app.put('/api/messages/:id', verifyToken, async (req, res) => {
+  const { id } = req.params;
+  const { text } = req.body;
+
+  try {
+    const message = await Message.findById(id);
+    if (!message) return res.status(404).json({ error: 'Message not found' });
+
+    // Only the original sender can edit
+    const decoded = jwt.verify(req.headers.authorization.split(" ")[1], process.env.JWT_SECRET);
+    if (message.username !== decoded.username) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    message.text = text;
+    message.edited = true;
+    await message.save();
+
+    io.emit("messageEdited", message); // Broadcast to others
+    res.json({ message: 'Message updated', data: message });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update message' });
+  }
+});
+app.delete('/api/messages/:id', verifyToken, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const message = await Message.findById(id);
+    if (!message) return res.status(404).json({ error: 'Message not found' });
+
+    const decoded = jwt.verify(req.headers.authorization.split(" ")[1], process.env.JWT_SECRET);
+    if (message.username !== decoded.username) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    await message.remove();
+    io.emit("messageDeleted", { id }); // Notify others
+    res.json({ message: 'Message deleted' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete message' });
+  }
+});
+// ========================================
+
 
 // ✅ Secure - Public message history
 app.get('/api/messages', verifyToken, async (req, res) => {
