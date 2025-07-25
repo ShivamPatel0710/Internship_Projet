@@ -1,4 +1,5 @@
-require('dotenv').config();
+const dotenv = require('dotenv')
+dotenv.config();
 
 const express = require('express');
 const http = require('http');
@@ -36,7 +37,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
 
 // API Routes
-api.get('/',(req,res)=>{
+app.get('/',(req,res)=>{
   res.send("Api is running")
 })
 app.use('/api/auth', authRoutes);
